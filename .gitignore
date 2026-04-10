@@ -1,0 +1,8 @@
+.venv/
+uploads/
+outputs/
+logs/
+__pycache__/
+*.pyc
+server.log
+*.zip

@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sertifika Ayırıcı</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .container { width: 100%; max-width: 760px; }
+
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 40px;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2a2d3e;
+      border-radius: 16px;
+      padding: 32px;
+      margin-bottom: 24px;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #aaa;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px; height: 26px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border-radius: 50%;
+      font-size: 0.75rem;
+      color: white;
+      font-weight: 700;
+    }
+
+    input[type="file"].hidden-input { display: none; }
+
+    .drop-zone {
+      border: 2px dashed #3a3d50;
+      border-radius: 12px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: #667eea;
+      background: rgba(102,126,234,0.05);
+    }
+    .drop-zone .icon { font-size: 2.5rem; margin-bottom: 12px; pointer-events: none; }
+    .drop-zone .label { font-size: 0.95rem; color: #bbb; pointer-events: none; }
+    .drop-zone .label span { color: #667eea; font-weight: 600; }
+    .drop-zone .hint { font-size: 0.8rem; color: #555; margin-top: 6px; pointer-events: none; }
+
+    .file-selected {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: rgba(102,126,234,0.1);
+      border: 1px solid rgba(102,126,234,0.3);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: #667eea;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    .file-selected.show { display: flex; }
+    .file-selected .dosya-adi { flex: 1; }
+
+    .btn-sil {
+      background: none; border: none; color: #f87171;
+      cursor: pointer; font-size: 1rem; padding: 2px 6px;
+      border-radius: 4px; line-height: 1; transition: background 0.15s;
+    }
+    .btn-sil:hover { background: rgba(239,68,68,0.15); }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab-btn {
+      padding: 8px 18px; border-radius: 8px;
+      border: 1px solid #3a3d50; background: transparent;
+      color: #888; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border-color: transparent; color: white; font-weight: 600;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    textarea {
+      width: 100%; height: 200px;
+      background: #0f1117; border: 1px solid #3a3d50;
+      border-radius: 10px; padding: 14px; color: #e0e0e0;
+      font-size: 0.9rem; font-family: 'Courier New', monospace;
+      resize: vertical; outline: none; line-height: 1.6;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { border-color: #667eea; }
+    textarea::placeholder { color: #444; }
+    .isim-sayac { text-align: right; font-size: 0.8rem; color: #555; margin-top: 6px; }
+
+    /* Belge türü */
+    .tur-secim { display: flex; gap: 16px; }
+    .tur-kart {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; gap: 6px; padding: 20px 16px;
+      border: 2px solid #2a2d3e; border-radius: 12px;
+      cursor: pointer; transition: all 0.2s; text-align: center;
+    }
+    .tur-kart input[type="radio"] { display: none; }
+    .tur-kart:hover { border-color: #667eea; }
+    .tur-kart.aktif { border-color: #667eea; background: rgba(102,126,234,0.08); }
+    .tur-ikon { font-size: 1.8rem; }
+    .tur-baslik { font-size: 1rem; font-weight: 700; color: #e0e0e0; }
+    .tur-ornek { font-size: 0.75rem; color: #555; font-family: 'Courier New', monospace; }
+    .tur-kart.aktif .tur-ornek { color: #667eea; }
+
+    .btn-isle {
+      width: 100%; padding: 16px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      border: none; border-radius: 12px; color: white;
+      font-size: 1rem; font-weight: 700; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s; letter-spacing: 0.03em;
+    }
+    .btn-isle:hover { opacity: 0.9; }
+    .btn-isle:active { transform: scale(0.99); }
+    .btn-isle:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .alert {
+      padding: 16px 20px; border-radius: 12px;
+      font-size: 0.9rem; line-height: 1.5;
+    }
+    .alert-error {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3); color: #f87171;
+    }
+    .alert-success {
+      background: rgba(34,197,94,0.1);
+      border: 1px solid rgba(34,197,94,0.3); color: #4ade80;
+    }
+
+    .progress-wrap {
+      background: #2a2d3e; border-radius: 8px;
+      overflow: hidden; margin-top: 16px; height: 10px;
+    }
+    .progress-bar {
+      height: 100%; width: 0%;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      transition: width 0.2s ease;
+    }
+    .progress-label {
+      text-align: center; font-size: 0.82rem;
+      color: #888; margin-top: 8px;
+    }
+
+    .btn-indir {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-top: 16px; padding: 12px 24px;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      border: none; border-radius: 10px; color: white;
+      font-size: 0.95rem; font-weight: 700; cursor: pointer;
+      text-decoration: none; transition: opacity 0.2s;
+    }
+    .btn-indir:hover { opacity: 0.85; }
+
+    .dosya-listesi {
+      margin-top: 16px; max-height: 260px; overflow-y: auto;
+      border: 1px solid #2a2d3e; border-radius: 10px;
+    }
+    .dosya-listesi-item {
+      padding: 8px 14px; font-size: 0.82rem; color: #aaa;
+      font-family: 'Courier New', monospace;
+      border-bottom: 1px solid #1e2130;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .dosya-listesi-item:last-child { border-bottom: none; }
+    .dosya-listesi-item::before { content: "✓"; color: #4ade80; font-size: 0.75rem; }
+
+    .spinner {
+      display: inline-block; width: 20px; height: 20px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: white; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle; margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .eslesmeme-info { display: flex; gap: 16px; margin-top: 12px; }
+    .badge { padding: 6px 14px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; }
+    .badge-red { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+    .badge-blue { background: rgba(102,126,234,0.15); color: #818cf8; border: 1px solid rgba(102,126,234,0.3); }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Sertifika Ayırıcı</h1>
+  <p class="subtitle">Toplu PDF'i sayfalarına ayır, her sayfayı isimle dosyala ve ZIP olarak indir.<br>Tüm işlem tarayıcında gerçekleşir — hiçbir dosya sunucuya gönderilmez.</p>
+
+  <input type="file" id="pdfInput" class="hidden-input" accept=".pdf">
+  <input type="file" id="isimInput" class="hidden-input" accept=".txt,.csv">
+
+  <!-- Adım 1 -->
+  <div class="card">
+    <h2><span class="step">1</span> Toplu PDF Dosyası</h2>
+    <div class="drop-zone" id="pdfZone">
+      <div class="icon">📄</div>
+      <div class="label">Dosyayı sürükle bırak veya <span>seç</span></div>
+      <div class="hint">Yalnızca PDF · Maks. 200 MB</div>
+    </div>
+    <div class="file-selected" id="pdfSecilen">
+      <span>📎</span>
+      <span class="dosya-adi" id="pdfAdi"></span>
+      <button class="btn-sil" onclick="dosyaSil('pdf')" title="Kaldır">✕</button>
+    </div>
+  </div>
+
+  <!-- Adım 2 -->
+  <div class="card">
+    <h2><span class="step">2</span> İsim Listesi</h2>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="metin">Metin Gir</button>
+      <button class="tab-btn" data-tab="dosya">Dosya Yükle</button>
+    </div>
+    <div class="tab-content active" id="tab-metin">
+      <textarea id="isimMetin" placeholder="Her satıra bir isim yazın:&#10;&#10;Ahmet Yılmaz&#10;Ayşe Kaya&#10;Mehmet Demir&#10;..."></textarea>
+      <div class="isim-sayac"><span id="isimSayaci">0</span> isim</div>
+    </div>
+    <div class="tab-content" id="tab-dosya">
+      <div class="drop-zone" id="isimZone">
+        <div class="icon">📝</div>
+        <div class="label">Dosyayı sürükle bırak veya <span>seç</span></div>
+        <div class="hint">TXT veya CSV · Her satırda bir isim</div>
+      </div>
+      <div class="file-selected" id="isimSecilen">
+        <span>📎</span>
+        <span class="dosya-adi" id="isimAdi"></span>
+        <button class="btn-sil" onclick="dosyaSil('isim')" title="Kaldır">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Adım 3 -->
+  <div class="card">
+    <h2><span class="step">3</span> Belge Türü</h2>
+    <div class="tur-secim">
+      <label class="tur-kart aktif" id="turSertifika">
+        <input type="radio" name="belge_turu" value="Sertifika" checked>
+        <span class="tur-ikon">🏅</span>
+        <span class="tur-baslik">Sertifika</span>
+        <span class="tur-ornek">Ad_Soyad-Sertifika.pdf</span>
+      </label>
+      <label class="tur-kart" id="turReferans">
+        <input type="radio" name="belge_turu" value="Referans">
+        <span class="tur-ikon">📋</span>
+        <span class="tur-baslik">Referans</span>
+        <span class="tur-ornek">Ad_Soyad-Referans.pdf</span>
+      </label>
+    </div>
+  </div>
+
+  <button class="btn-isle" id="btnIsle" onclick="isle()">
+    Sertifikaları Ayır &amp; İndir
+  </button>
+
+  <div id="sonuc" style="margin-top:24px; display:none;"></div>
+</div>
+
+<script>
+  // ── Seçilen dosyalar ──────────────────────────────────────────────────────────
+  const secili = { pdf: null, isim: null };
+
+  function dosyaSil(key) {
+    secili[key] = null;
+    const prefix = key === 'pdf' ? 'pdf' : 'isim';
+    document.getElementById(prefix + 'Input').value = '';
+    document.getElementById(prefix + 'Adi').textContent = '';
+    document.getElementById(prefix + 'Secilen').classList.remove('show');
+  }
+
+  // ── Drop zone kurulumu ────────────────────────────────────────────────────────
+  function setupDropZone(zoneId, inputId, adiId, secilenId, key) {
+    const zone  = document.getElementById(zoneId);
+    const input = document.getElementById(inputId);
+
+    function kaydet(file) {
+      secili[key] = file;
+      document.getElementById(adiId).textContent = file.name;
+      document.getElementById(secilenId).classList.add('show');
+    }
+
+    zone.addEventListener('click', () => input.click());
+    input.addEventListener('change', function () {
+      if (this.files[0]) kaydet(this.files[0]);
+    });
+
+    let dragCount = 0;
+    zone.addEventListener('dragenter', e => { e.preventDefault(); dragCount++; zone.classList.add('drag-over'); });
+    zone.addEventListener('dragover',  e => { e.preventDefault(); });
+    zone.addEventListener('dragleave', e => { e.preventDefault(); if (--dragCount === 0) zone.classList.remove('drag-over'); });
+    zone.addEventListener('drop', e => {
+      e.preventDefault(); dragCount = 0; zone.classList.remove('drag-over');
+      if (e.dataTransfer.files[0]) kaydet(e.dataTransfer.files[0]);
+    });
+  }
+
+  setupDropZone('pdfZone',  'pdfInput',  'pdfAdi',  'pdfSecilen',  'pdf');
+  setupDropZone('isimZone', 'isimInput', 'isimAdi', 'isimSecilen', 'isim');
+
+  // ── Tab switching ─────────────────────────────────────────────────────────────
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ── Belge türü ────────────────────────────────────────────────────────────────
+  document.querySelectorAll('.tur-kart').forEach(k => {
+    k.addEventListener('click', () => {
+      document.querySelectorAll('.tur-kart').forEach(x => x.classList.remove('aktif'));
+      k.classList.add('aktif');
+    });
+  });
+
+  // ── İsim sayacı ───────────────────────────────────────────────────────────────
+  document.getElementById('isimMetin').addEventListener('input', function () {
+    document.getElementById('isimSayaci').textContent =
+      this.value.split('\n').filter(s => s.trim()).length;
+  });
+
+  // ── Yardımcı: isim formatlama ─────────────────────────────────────────────────
+  function titleCase(str) {
+    const trMap = { 'i': 'İ', 'ı': 'I', 'ğ': 'Ğ', 'ü': 'Ü', 'ş': 'Ş', 'ö': 'Ö', 'ç': 'Ç' };
+    return str.toLowerCase().replace(/[a-zğüşöçı]/g, c => {
+      const up = trMap[c] || c.toUpperCase();
+      return up;
+    }).replace(/(\S)(\S*)/g, (_, first, rest) => first + rest.toLowerCase().replace(/[A-ZĞÜŞÖÇİ]/g, c => c.toLowerCase()));
+  }
+
+  function titleCaseWord(word) {
+    if (!word) return '';
+    const trUpper = { 'i': 'İ', 'ı': 'I', 'ğ': 'Ğ', 'ü': 'Ü', 'ş': 'Ş', 'ö': 'Ö', 'ç': 'Ç' };
+    const trLower = { 'İ': 'i', 'I': 'ı', 'Ğ': 'ğ', 'Ü': 'ü', 'Ş': 'ş', 'Ö': 'ö', 'Ç': 'ç' };
+    const first = word[0];
+    const upper = trUpper[first] || first.toUpperCase();
+    const rest  = word.slice(1).split('').map(c => trLower[c] || c.toLowerCase()).join('');
+    return upper + rest;
+  }
+
+  function duzeltIsim(isim) {
+    return isim.trim().split(/\s+/).map(titleCaseWord).join(' ');
+  }
+
+  function temizleDosyaAdi(isim) {
+    return isim
+      .replace(/[-\s]+/g, '_')
+      .replace(/[\\/:*?"<>|]/g, '')
+      .replace(/_{2,}/g, '_');
+  }
+
+  // ── Ana işlem ─────────────────────────────────────────────────────────────────
+  async function isle() {
+    const btn   = document.getElementById('btnIsle');
+    const sonuc = document.getElementById('sonuc');
+
+    const aktifTab  = document.querySelector('.tab-btn.active').dataset.tab;
+    const belgeTuru = document.querySelector('input[name="belge_turu"]:checked').value;
+
+    // Doğrulama
+    if (!secili.pdf) { gosterSonuc('error', 'PDF dosyası seçilmedi.'); return; }
+
+    let isimText = '';
+    if (aktifTab === 'dosya') {
+      if (!secili.isim) { gosterSonuc('error', 'İsim dosyası seçilmedi.'); return; }
+      isimText = await secili.isim.text();
+    } else {
+      isimText = document.getElementById('isimMetin').value;
+    }
+
+    const isimler = isimText.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!isimler.length) { gosterSonuc('error', 'İsim listesi boş.'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> İşleniyor...';
+    sonuc.style.display = 'none';
+
+    try {
+      // PDF oku
+      const pdfBytes = await secili.pdf.arrayBuffer();
+      const srcPdf   = await PDFLib.PDFDocument.load(pdfBytes);
+      const sayfaSayisi = srcPdf.getPageCount();
+
+      if (sayfaSayisi !== isimler.length) {
+        gosterSonuc('error',
+          `Sayfa sayısı (${sayfaSayisi}) ile isim sayısı (${isimler.length}) eşleşmiyor!
+          <div class="eslesmeme-info">
+            <span class="badge badge-red">PDF: ${sayfaSayisi} sayfa</span>
+            <span class="badge badge-blue">İsim: ${isimler.length} adet</span>
+          </div>`
+        );
+        return;
+      }
+
+      // İlerleme göster
+      sonuc.style.display = 'block';
+      sonuc.innerHTML = `
+        <div class="card alert alert-success">
+          <strong>İşleniyor...</strong>
+          <div class="progress-wrap"><div class="progress-bar" id="progBar"></div></div>
+          <div class="progress-label" id="progLabel">0 / ${isimler.length}</div>
+        </div>`;
+
+      const zip = new JSZip();
+      const olusturulan = [];
+
+      for (let i = 0; i < isimler.length; i++) {
+        const duzeltilmis = duzeltIsim(isimler[i]);
+        const temiz       = temizleDosyaAdi(duzeltilmis);
+        const dosyaAdi    = `${temiz}-${belgeTuru}.pdf`;
+
+        const yeniPdf = await PDFLib.PDFDocument.create();
+        const [sayfa] = await yeniPdf.copyPages(srcPdf, [i]);
+        yeniPdf.addPage(sayfa);
+
+        const bytes = await yeniPdf.save();
+        zip.file(dosyaAdi, bytes);
+        olusturulan.push(dosyaAdi);
+
+        // İlerleme güncelle
+        const yuzde = Math.round(((i + 1) / isimler.length) * 100);
+        document.getElementById('progBar').style.width = yuzde + '%';
+        document.getElementById('progLabel').textContent = `${i + 1} / ${isimler.length}`;
+
+        // UI'nın nefes alması için küçük bir yield
+        if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
+      }
+
+      // ZIP oluştur ve indir
+      const zipOnEk = belgeTuru === 'Sertifika' ? 'sertifikalar' : 'referanslar';
+      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      const url     = URL.createObjectURL(zipBlob);
+
+      const dosyaListeHTML = olusturulan.map(d =>
+        `<div class="dosya-listesi-item">${d}</div>`).join('');
+
+      gosterSonuc('success', `
+        <strong>Tamamlandı!</strong> ${olusturulan.length} dosya oluşturuldu.
+        <br>
+        <a href="${url}" class="btn-indir" download="${zipOnEk}.zip">
+          ⬇ ZIP Olarak İndir (${olusturulan.length} dosya)
+        </a>
+        <div class="dosya-listesi">${dosyaListeHTML}</div>
+      `);
+
+    } catch (e) {
+      gosterSonuc('error', 'Hata: ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Sertifikaları Ayır &amp; İndir';
+    }
+  }
+
+  function gosterSonuc(tip, mesaj) {
+    const sonuc = document.getElementById('sonuc');
+    sonuc.style.display = 'block';
+    sonuc.innerHTML = `<div class="card alert alert-${tip === 'error' ? 'error' : 'success'}">${mesaj}</div>`;
+    sonuc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+</script>
+</body>
+</html>
